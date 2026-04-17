@@ -48,19 +48,20 @@ def read_csp_file(csp_file):
         return None, None
     csp_df = df.rename(columns={"Unnamed: 0" : "Residue", "1to4" : "CSP"}) # rename column headers
     csp_df.columns = ['Residue', 'CSP']
+    # print("Columns in file:", list(csp_df.columns))
     csp_dict = dict(zip(csp_df['Residue'], csp_df['CSP'])) 
-    return csp_dict
+    return csp_df
     
-def map_file(filepath, csp_df):  
-    '''If using user-provided structure file instead of PDB ID'''
+def map_keys(filepath):  
+    '''Prepare atom_df and rename columns to standard form'''
 
     structure, filetype = detect_filetype(filepath)
     if structure is None:
         print("Error: could not load structure file.")
-        return None
+        return None, None, None
 
-    atom_df=structure.df['ATOM'].copy() # get data with atom key
-    print(structure.df['ATOM'].columns) # check key names in file 
+    atom_df=structure.df['ATOM'] # get data with atom key
+
     
     if filetype == "PDB":
         res_num_col = 'residue_number'
@@ -81,20 +82,21 @@ def map_file(filepath, csp_df):
 
     return atom_df, structure, filetype
 
-def substitute_b_factor_using_id(structure_id, csp_df, save_dir=None):  
+def substitute_b_factor_using_id(structure_id, csp_dict, save_dir=None):  
     '''Substitutes b-factor column with chemical shift perturbation data using a the PDB ID; will output PDB file'''
-    structure, csp_df = get_structure(structure_id, csp_df)
-
-    if structure is None:
-        return None, None
+    try:
+        structure = PandasPdb().fetch_pdb(structure_id)
+        if structure is None:
+            print("No valid structure loaded.")
+            return None, None
+        print("Loaded structure from PDB ID:", structure_id)
+    except Exception as e:
+        print("Error fetching PDB ID:", e)
+        return None
     
     atom_df=structure.df['ATOM'].copy() # get data with atom key
-
-    atom_df['b_factor'] = atom_df['residue_number'].map(csp_df).fillna(0.0) # map values to residues
-
-
-    # put results back into data frame
-    structure.df['ATOM'] = atom_df 
+    atom_df['b_factor'] = atom_df['residue_number'].map(csp_dict).fillna(0.0) # map values to residues
+    structure.df['ATOM'] = atom_df # put data back in structure
 
     # define save directory
     if save_dir is None:
@@ -106,26 +108,39 @@ def substitute_b_factor_using_id(structure_id, csp_df, save_dir=None):
     print(f"Saved PDB with substituted B-factors to: {out_path}")
     return out_path
 
-
 def substitute_b_factor_using_file(filepath, csp_df): 
     '''Substitutes b-factor column with chemical shift perturbation data using a user provided protein file; will output PDB or CIF file'''
-    structure, filetype = detect_filetype(filepath)
+    atom_df, structure, filetype = map_keys(filepath) # returns pandas.DataFrame, pandas.DataFrame, str
     if structure is None:
         print("No valid structure loaded.")
         return None
-    
-    atom_df = structure.df['ATOM'].copy()
 
-    csp_dict = dict(zip(csp_df['Residue'], csp_df['CSP'])) # convert csp pandas df to file to prepare for merge
-    atom_df['b_factor'] = atom_df['residue_number'].map(csp_dict).fillna(0.0)
+    dirname, filename = os.path.split(filepath)
+    name = os.path.splitext(filename)[0]
 
     if filetype == "PDB":
-        # define output file path
-        dirname, filename = os.path.split(filepath) 
-        name = os.path.splitext(filename)
-        out_path = os.path.join(dirname, f"TEST_{name}_b-factor.pdb") 
-        print(f"Saved to {out_path}")
-        return structure.to_pdb(path=out_path, records=['ATOM'], gz=False) 
+        print('Printin column names to dubug')
+
+        atom_df=structure.df['ATOM'].copy() # get data with atom key
+
+        print(atom_df[['residue_number', 'residue_name', 'b_factor']].head(10)) # check before refactoring
+        csp_dict = dict(zip(csp_df['Residue'], csp_df['CSP'])) # convert csp pandas df to file to prepare for merge
+        atom_df['b_factor'] = atom_df['residue_number'].map(csp_dict).fillna(0.0) # map values to residues
+
+        # check after merge
+        check_df = atom_df[['residue_number', 'residue_name', 'b_factor']] 
+        print(check_df.head(20))
+
+        # for val in atom_df["b_factor"]: 
+        #     print(val)
+                
+        atom_df['b_factor'] = atom_df['residue_number'].map(csp_dict).fillna(0.0)
+        structure.df['ATOM'] = atom_df
+        out_path = os.path.join(dirname, f"TEST_{name}_b-factor.pdb")
+        structure.to_pdb(path=out_path, records=['ATOM'], gz=False)
+        print(f"Saved PDB to {out_path}")
+        return out_path
+
     
     if filetype == "CIF":
         
@@ -142,13 +157,14 @@ def substitute_b_factor_using_file(filepath, csp_df):
 
         # convert excel df to dict to prepare for merge
         csp_dict = dict(zip(csp_df['Residue'], csp_df['CSP'])) 
+        
+        print(atom_df[['residue_number', 'residue_name', 'b_factor']].head(10)) # check before refactoring
 
         # set new key ['new_b']
         atom_df['new_b'] = atom_df['residue_number'].map(csp_dict).fillna(0.0)
 
-        print(atom_df[['residue_number', 'new_b']].head(10))  # debug
 
-        print("inspecting object")
+        # print("inspecting object")
 
         # read cif file using gemmi 
         doc = gemmi.cif.read_file(filepath)
@@ -181,6 +197,10 @@ def substitute_b_factor_using_file(filepath, csp_df):
             if 'B_iso_or_equiv' in tag:
                 atom_df[tag] = atom_df['residue_number'].map(csp_dict).fillna(0.0)
                 print("Replaced:", tag)
+
+        # check after merge
+        check_df = atom_df[['residue_number', 'residue_name', 'new_b']] 
+        print(check_df.head(10))
        
        # save
         dirname, filename = os.path.split(filepath)
@@ -191,11 +211,12 @@ def substitute_b_factor_using_file(filepath, csp_df):
         doc.write_file(out_path)
 
         return out_path
-
+    
 def prompt_user(): 
     '''Prompts user to input csp data, protein id or filetype, and save directory'''
-    csp_file = input("Input the file path to your data file: ") 
-    csp_df = read_csp_file(csp_file)
+    csp_file = input("Input the file path to your chemical shift file. *Note - use excel file format*: ")  
+    # csp_file='/Users/rebekahsheih/projects/bezsonova_lab/csp-visualizer/usp7_files/USP7-SCML2-NMR-titration.xlsx'
+    csp_df = read_csp_file(csp_file) # returns df
     
     if csp_df is None:
         print("Error reading CSP file. Exiting.")
@@ -208,20 +229,20 @@ def prompt_user():
     user_choice = input("Would you like to upload a structure file? (Type 'Y' or 'N'): ") 
 
     if user_choice.upper() == "Y": 
-        structure_file = input("Please provide a path to either a PDB or CIF file: ")
-        atom_df, structure, filetype = map_file(structure_file, csp_df)
-        out_path = substitute_b_factor_using_file(structure_file, csp_df)
-        return out_path, f'B-factor substitution complete. Your new file can be found at {out_path}.'
+        structure_file = input("Please provide a path to either a PDB or CIF file: ") 
+        # structure_file='/Users/rebekahsheih/projects/bezsonova_lab/csp-visualizer/usp7_files/2F1W.pdb'
+        # atom_df, structure, filetype = map_file(structure_file, csp_dict)
+        # out_path = substitute_b_factor_using_file(structure_file, csp_dict)
+        return substitute_b_factor_using_file(structure_file, csp_df)
     
     if user_choice.upper() == "N": 
         pdb_id = input("Input a PDB ID: ")   
-        structure, out_path = substitute_b_factor_using_id(pdb_id, csp_df)
-        return out_path, f'B-factor substitution complete. Your new file can be found at {out_path}.'
+        return substitute_b_factor_using_id(pdb_id, csp_df, save_dir)
 
-    return user_choice, csp_file, save_dir
+    
 
 def main(): 
-    user_choice, csp_file, save_dir = prompt_user()
+    out_path = prompt_user()
 
 if __name__ == "__main__":
     main()
