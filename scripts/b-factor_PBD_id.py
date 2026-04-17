@@ -1,4 +1,6 @@
-#! /bin/sh
+#!/usr/bin/env python3
+
+# SCRIPT USED WHEN USER HAS PDB ID
 
 #####################
 # CONVERT XLSX FILE #
@@ -40,27 +42,13 @@ def substitute_b_factor(structure_id, nmr_data, save_dir=None):
     nmr_data.columns = ['Residue', 'CSP']
     atom_df=structure.df['ATOM'].copy() # get data with atom key
     # print(structure.df['ATOM'].columns) # check key names in file 
-    
-    # map key names in filetype for either PDB or CIF
-    # if filetype == "PDB":
-    #     res_num_col = 'residue_number'
-    #     res_name_col = 'residue_name'
-    #     b_factor_col = 'b_factor' 
-    # if filetype == "CIF":
-    #     res_num_col = 'auth_seq_id'
-    #     res_name_col = 'auth_comp_id'
-    #     b_factor_col = 'B_iso_or_equiv'
-    #     # # Map to standard PDB expected names
-    #     atom_df['residue_number'] = atom_df[res_num_col].astype(int) # try
-    #     atom_df['residue_name'] = atom_df[res_name_col]
-    #     atom_df['b_factor'] = atom_df[b_factor_col].astype(float)
 
     # print(atom_df[['residue_number', 'residue_name', 'b_factor']].head(10)) # check before refactoring
     nmr_data = dict(zip(nmr_data['Residue'], nmr_data['CSP'])) # convert csp pandas df to file to prepare for merge
     atom_df['b_factor'] = atom_df['residue_number'].map(nmr_data).fillna(0.0) # map values to residues
 
     # check after merge
-    check_df = atom_df[['residue_number', 'residue_name', 'b_factor']] 
+    # check_df = atom_df[['residue_number', 'residue_name', 'b_factor']] 
     # print(check_df.head(20))
 
     # put results back into data frame

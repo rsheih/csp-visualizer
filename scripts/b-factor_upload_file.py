@@ -1,3 +1,7 @@
+#!/usr/bin/env python3
+
+# SCRIPT USED WHEN USER HAS PDB OR CIF FILE
+
 import os
 import pandas as pd 
 from biopandas.pdb import PandasPdb
@@ -134,7 +138,7 @@ def main():
     filepath = input("Enter file path: ") 
 
     # csp_df = pd.read_excel("/Users/rebekahsheih/Library/CloudStorage/OneDrive-UConnHealthCenter/rotation_3_bezsonova/usp7_files/USP7-SCML2-NMR-titration.xlsx",  sheet_name=1)  
-    csp_df=pd.read_excel("/Users/rebekahsheih/projects/bezsonova_lab/usp7_files/test.xlsx", sheet_name=1)
+    csp_df=pd.read_excel("/Users/rebekahsheih/projects/bezsonova_lab/csp-visualizer/usp7_files/USP7-SCML2-NMR-titration.xlsx", sheet_name=1)
     # TODO (Use text file with two columns (residue and chem shift) instead of excel file)
     print('loaded excel')
     # csp_df=input("Enter a .txt file: ")

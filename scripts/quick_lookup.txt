@@ -1,0 +1,28 @@
+code ~/projects/bezsonova_lab
+
+source chemical_shift_env/bin/activate # activate venv
+
+pip install package
+
+jupyter notebook # launch remote session
+
+ssh rsheih@iron.nmrbox.org 
+
+PYMOL
+
+load filepath
+spectrum b, blue_white_red
+
+2F1W
+
+github  
+cd csp-visualizer
+git checkout dev # branch working on in VS code 
+git pull origin dev # pull everything from branch to computer
+`
+
+git status
+git commit -m "MESSAGE"
+git remote add origin https://github.com/rsheih/csp-visualizer.git
+git branch -M dev
+git push -u origin dev

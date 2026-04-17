@@ -1,15 +1,50 @@
 #!/usr/bin/env python3
 
 import os
-import pandas as pd 
-from biopandas.pdb import PandasPdb 
-from biopandas.mmcif import PandasMmcif # biopandas cannot write cif files, try exploring CIF FileWriter or Gemmi????
-import gemmi # cif parser, use to save cif file
+import importlib
+import subprocess 
 import sys
 
 print("Python executable:", sys.executable)
 
 # test: 2F1W
+
+def load_dependencies(): 
+
+    global pd, PandasPdb, PandasMmcif, gemmi 
+
+    import pandas as pd 
+    from biopandas.pdb import PandasPdb 
+    from biopandas.mmcif import PandasMmcif
+    import gemmi # cif parser, use to save cif file
+
+def print_user_instructions():
+    print("\n" + "="*70)
+    print("CSP VISUALIZER — INPUT REQUIREMENTS")
+    print("="*70)
+    
+    print("\n1. Chemical Shift Perturbation (CSP) File Requirements:")
+    print("   • File type must be: .txt")
+    print("   • Must contain exactly TWO columns")
+    print("   • Each column must have a header")
+    print("   • Column 1: Residue number")
+    print("   • Column 2: Chemical shift perturbation values")
+    
+    print("\n   Example format:")
+    print("   Residue    CSP")
+    print("   65          5.68")
+    print("   66          6.44")
+    
+    print("\n2. Structure File OR PDB ID (next step):")
+    print("   After uploading your CSP file, you will be prompted")
+    print("   to provide a protein structure file.")
+    print("   • Accepted formats: .pdb or .cif")
+    print("   • You may also provide a PDB ID instead")
+    
+    print("\n3. Workflow:")
+    print("   CSP file → Structure file → B-factor substitution → Output file")
+    
+    print("\n" + "="*70 + "\n")
 
 def get_structure(pdb_id, csp_file): 
     'Load user inputted structure ID and NMR data file'
@@ -39,18 +74,45 @@ def detect_filetype(filepath):
     else:
         return None, None
     
+def normalize_csp(df):
+    '''Ensure CSP file is always safe for mapping'''
+
+    df = df.iloc[:, :2].copy()
+    df.columns = ["Residue", "CSP"]
+
+    df["Residue"] = pd.to_numeric(df["Residue"], errors="coerce")
+    df["CSP"] = pd.to_numeric(df["CSP"], errors="coerce")
+
+    df = df.dropna()
+
+    return df
+    
 def read_csp_file(csp_file): 
+    '''reads user input text file'''
     try:
-        df = pd.read_excel(csp_file, sheet_name=1)
-        print("Loaded CSP data from Excel.")
+        ext = os.path.splitext(csp_file)[1].lower()
+
+        if ext in [".xlsx", ".xls"]:
+            csp_df = pd.read_excel(csp_file)
+
+        elif ext in [".txt", ".tsv"]:
+            csp_df = pd.read_csv(csp_file, sep=r"\s+", header=0)  
+
+        else:
+            print("Unsupported file type")
+            return None
+
+        print("Loaded CSP data.")
+
     except Exception as e:
         print("Error loading CSP file:", e)
-        return None, None
-    csp_df = df.rename(columns={"Unnamed: 0" : "Residue", "1to4" : "CSP"}) # rename column headers
-    csp_df.columns = ['Residue', 'CSP']
-    # print("Columns in file:", list(csp_df.columns))
-    csp_dict = dict(zip(csp_df['Residue'], csp_df['CSP'])) 
-    return csp_df
+        return None
+    
+    # csp_df = csp_df.iloc[:, :2].copy()
+
+    csp_df.columns = ["Residue", "CSP"] # overwrite headers
+
+    return normalize_csp(csp_df)
     
 def map_keys(filepath):  
     '''Prepare atom_df and rename columns to standard form'''
@@ -82,7 +144,7 @@ def map_keys(filepath):
 
     return atom_df, structure, filetype
 
-def substitute_b_factor_using_id(structure_id, csp_dict, save_dir=None):  
+def substitute_b_factor_using_id(structure_id, csp_df, save_dir=None):  
     '''Substitutes b-factor column with chemical shift perturbation data using a the PDB ID; will output PDB file'''
     try:
         structure = PandasPdb().fetch_pdb(structure_id)
@@ -93,16 +155,27 @@ def substitute_b_factor_using_id(structure_id, csp_dict, save_dir=None):
     except Exception as e:
         print("Error fetching PDB ID:", e)
         return None
-    
-    atom_df=structure.df['ATOM'].copy() # get data with atom key
-    atom_df['b_factor'] = atom_df['residue_number'].map(csp_dict).fillna(0.0) # map values to residues
-    structure.df['ATOM'] = atom_df # put data back in structure
 
-    # define save directory
+    # dirname, filename = os.path.split(structure_id)
+    name = structure_id.strip().upper()
     if save_dir is None:
         save_dir = os.getcwd()
-    out_filename = f"{structure_id}_b-factor.pdb"
-    out_path = os.path.join(save_dir, out_filename)
+
+    atom_df=structure.df['ATOM'].copy() # get data with atom key
+
+    print(atom_df[['residue_number', 'residue_name', 'b_factor']].head(10)) # check before refactoring
+    csp_dict = dict(zip(csp_df['Residue'], csp_df['CSP'])) # convert csp pandas df to file to prepare for merge
+    atom_df['b_factor'] = atom_df['residue_number'].map(csp_dict).fillna(0.0) # map values to residues
+
+    # check after merge
+    check_df = atom_df[['residue_number', 'residue_name', 'b_factor']] 
+    print(check_df.head(20))
+
+                
+    atom_df['b_factor'] = atom_df['residue_number'].map(csp_dict).fillna(0.0)
+    structure.df['ATOM'] = atom_df
+    out_path = os.path.join(save_dir, f"{name}_b-factor.pdb")
+
     
     structure.to_pdb(path=out_path, records=['ATOM'], gz=False)
     print(f"Saved PDB with substituted B-factors to: {out_path}")
@@ -115,11 +188,7 @@ def substitute_b_factor_using_file(filepath, csp_df):
         print("No valid structure loaded.")
         return None
 
-    dirname, filename = os.path.split(filepath)
-    name = os.path.splitext(filename)[0]
-
     if filetype == "PDB":
-        print('Printin column names to dubug')
 
         atom_df=structure.df['ATOM'].copy() # get data with atom key
 
@@ -136,7 +205,7 @@ def substitute_b_factor_using_file(filepath, csp_df):
                 
         atom_df['b_factor'] = atom_df['residue_number'].map(csp_dict).fillna(0.0)
         structure.df['ATOM'] = atom_df
-        out_path = os.path.join(dirname, f"TEST_{name}_b-factor.pdb")
+        out_path = os.path.join(dirname, f"{name}_b-factor.pdb")
         structure.to_pdb(path=out_path, records=['ATOM'], gz=False)
         print(f"Saved PDB to {out_path}")
         return out_path
@@ -205,7 +274,7 @@ def substitute_b_factor_using_file(filepath, csp_df):
        # save
         dirname, filename = os.path.split(filepath)
         name = os.path.splitext(filename)[0]
-        out_path = os.path.join(dirname, f"TEST_{name}_b-factor.cif")
+        out_path = os.path.join(dirname, f"{name}_b-factor.cif")
 
         print(f"Saved CIF to {out_path}")
         doc.write_file(out_path)
@@ -214,7 +283,8 @@ def substitute_b_factor_using_file(filepath, csp_df):
     
 def prompt_user(): 
     '''Prompts user to input csp data, protein id or filetype, and save directory'''
-    csp_file = input("Input the file path to your chemical shift file. *Note - use excel file format*: ")  
+
+    csp_file = input("Input the file pathway to your Chemical Shift Perturbation (CSP) File: ")  
     # csp_file='/Users/rebekahsheih/projects/bezsonova_lab/csp-visualizer/usp7_files/USP7-SCML2-NMR-titration.xlsx'
     csp_df = read_csp_file(csp_file) # returns df
     
@@ -229,7 +299,7 @@ def prompt_user():
     user_choice = input("Would you like to upload a structure file? (Type 'Y' or 'N'): ") 
 
     if user_choice.upper() == "Y": 
-        structure_file = input("Please provide a path to either a PDB or CIF file: ") 
+        structure_file = input("Input the file pathway to you Structure File (either a PDB or CIF file): ") 
         # structure_file='/Users/rebekahsheih/projects/bezsonova_lab/csp-visualizer/usp7_files/2F1W.pdb'
         # atom_df, structure, filetype = map_file(structure_file, csp_dict)
         # out_path = substitute_b_factor_using_file(structure_file, csp_dict)
@@ -239,13 +309,11 @@ def prompt_user():
         pdb_id = input("Input a PDB ID: ")   
         return substitute_b_factor_using_id(pdb_id, csp_df, save_dir)
 
-    
-
-def main(): 
-    out_path = prompt_user()
+def main():
+    # check_dependencies() 
+    load_dependencies()
+    print_user_instructions()
+    prompt_user()
 
 if __name__ == "__main__":
     main()
-
-
-# TODO dubug keys in csp_dict at 119, KeyError: 'Residue' - likely that csp_file/csp_df/csp_dict is mixed up. Check filetypes before getting to line 117 to see what the status of the csp object is. 
