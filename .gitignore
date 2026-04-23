@@ -4,7 +4,7 @@ usp7_files/
 # ignore file types 
 *.pdb 
 *.cif 
-*.txt 
+# *.txt 
 *.xlsx
 
 # Ignore large outputs
