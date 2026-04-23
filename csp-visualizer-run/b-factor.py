@@ -188,6 +188,9 @@ def substitute_b_factor_using_file(filepath, csp_df):
         print("No valid structure loaded.")
         return None
 
+    dirname, filename = os.path.split(filepath)
+    name = os.path.splitext(filename)[0]
+    
     if filetype == "PDB":
 
         atom_df=structure.df['ATOM'].copy() # get data with atom key
