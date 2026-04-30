@@ -1,5 +1,7 @@
 # ignore data folder 
-usp7_files/ 
+usp7_files/  
+other/
+outputs/
 
 # ignore file types 
 *.pdb 
