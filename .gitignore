@@ -1,0 +1,15 @@
+# ignore data folder 
+usp7_files/  
+other/
+outputs/
+
+# ignore file types 
+*.pdb 
+*.cif 
+# *.txt 
+*.xlsx
+
+# Ignore large outputs
+outputs/
+results/
+other/ 

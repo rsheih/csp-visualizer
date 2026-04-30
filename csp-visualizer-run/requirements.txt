@@ -1,0 +1,4 @@
+pandas
+biopandas
+gemmi
+openpyxl
