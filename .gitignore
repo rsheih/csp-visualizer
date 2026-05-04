@@ -8,9 +8,11 @@ outputs/
 *.cif 
 # *.txt 
 *.xlsx
-*.DS_Store
 
 # Ignore large outputs
 outputs/
 results/
 other/ 
+
+# other 
+.DS_Store
