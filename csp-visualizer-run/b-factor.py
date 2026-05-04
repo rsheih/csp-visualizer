@@ -289,7 +289,6 @@ def prompt_user():
 
     while True:
         csp_file = input("Input the file pathway to your Chemical Shift Perturbation (CSP) File: ")  
-        # csp_file='/Users/rebekahsheih/projects/bezsonova_lab/csp-visualizer/usp7_files/USP7-SCML2-NMR-titration.xlsx'
         csp_df = read_csp_file(csp_file) # returns df
         
         if csp_df is None:
@@ -315,15 +314,11 @@ def prompt_user():
 
                 if user_choice.upper() == "Y": 
                     structure_file = input("Input the file pathway to you Structure File (either a PDB or CIF file): ") 
-                    # structure_file='/Users/rebekahsheih/projects/bezsonova_lab/csp-visualizer/usp7_files/2F1W.pdb'
-                    # atom_df, structure, filetype = map_file(structure_file, csp_dict)
-                    # out_path = substitute_b_factor_using_file(structure_file, csp_dict)
                     return substitute_b_factor_using_file(structure_file, csp_df)
                 
                 if user_choice.upper() == "N": 
                     pdb_id = input("Input a PDB ID: ")   
-                    substitute_b_factor_using_id(pdb_id, csp_df, save_dir)  
-                    break 
+                    return substitute_b_factor_using_id(pdb_id, csp_df, save_dir)   
 
 def main():
     # check_dependencies() 
