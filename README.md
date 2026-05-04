@@ -3,7 +3,8 @@ A Python package for mapping chemical shift perturbations onto PDB/CIF structure
 
 ### Notes 
 - This tool replaces the B-factor column in the structure file with CSP values aligned by residue number
-- The output structure can be directly visualized in PyMOL or Chimera using standard coloring by B-factor 
+- The output structure can be directly visualized in PyMOL or Chimera using standard coloring by B-factor  
+- - Do NOT use `~` (tilde) in file paths. Always use the full absolute path (e.g., `/Users/yourname/data/file.pdb`) instead of shortcuts like `~/data/file.pdb`.
 
 ### Prerequisite
 
