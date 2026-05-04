@@ -287,30 +287,43 @@ def substitute_b_factor_using_file(filepath, csp_df):
 def prompt_user(): 
     '''Prompts user to input csp data, protein id or filetype, and save directory'''
 
-    csp_file = input("Input the file pathway to your Chemical Shift Perturbation (CSP) File: ")  
-    # csp_file='/Users/rebekahsheih/projects/bezsonova_lab/csp-visualizer/usp7_files/USP7-SCML2-NMR-titration.xlsx'
-    csp_df = read_csp_file(csp_file) # returns df
-    
-    if csp_df is None:
-        print("Error reading CSP file. Exiting.")
-        return
-    
+    while True:
+        csp_file = input("Input the file pathway to your Chemical Shift Perturbation (CSP) File: ")  
+        # csp_file='/Users/rebekahsheih/projects/bezsonova_lab/csp-visualizer/usp7_files/USP7-SCML2-NMR-titration.xlsx'
+        csp_df = read_csp_file(csp_file) # returns df
+        
+        if csp_df is None:
+            print("Error reading CSP file.")
+            continue
+        
+        while True:
+            save_dir = input("Input directory to save output (or press enter for current dir): ") # Pass this through later in function so that it subs None if they choose one
+            save_dir = save_dir if save_dir.strip() else None
 
-    save_dir = input("Input directory to save output (or press enter for current dir): ") # Pass this through later in function so that it subs None if they choose one
-    save_dir = save_dir if save_dir.strip() else None
+            if not save_dir:
+                save_dir = os.getcwd()  # use current directory
 
-    user_choice = input("Would you like to upload a structure file? (Type 'Y' or 'N'): ") 
+            if not os.path.isdir(save_dir):
+                print("Not a directory")
+                continue
 
-    if user_choice.upper() == "Y": 
-        structure_file = input("Input the file pathway to you Structure File (either a PDB or CIF file): ") 
-        # structure_file='/Users/rebekahsheih/projects/bezsonova_lab/csp-visualizer/usp7_files/2F1W.pdb'
-        # atom_df, structure, filetype = map_file(structure_file, csp_dict)
-        # out_path = substitute_b_factor_using_file(structure_file, csp_dict)
-        return substitute_b_factor_using_file(structure_file, csp_df)
-    
-    if user_choice.upper() == "N": 
-        pdb_id = input("Input a PDB ID: ")   
-        return substitute_b_factor_using_id(pdb_id, csp_df, save_dir)
+            while True:
+                user_choice = input("Would you like to upload a structure file? (Type 'Y' or 'N'): ")  
+                if user_choice.upper() != "Y" and user_choice.upper() != "N": 
+                    print("Invalid input. Please enter 'Y' or 'N'.")
+                    continue
+
+                if user_choice.upper() == "Y": 
+                    structure_file = input("Input the file pathway to you Structure File (either a PDB or CIF file): ") 
+                    # structure_file='/Users/rebekahsheih/projects/bezsonova_lab/csp-visualizer/usp7_files/2F1W.pdb'
+                    # atom_df, structure, filetype = map_file(structure_file, csp_dict)
+                    # out_path = substitute_b_factor_using_file(structure_file, csp_dict)
+                    return substitute_b_factor_using_file(structure_file, csp_df)
+                
+                if user_choice.upper() == "N": 
+                    pdb_id = input("Input a PDB ID: ")   
+                    substitute_b_factor_using_id(pdb_id, csp_df, save_dir)  
+                    break 
 
 def main():
     # check_dependencies() 
