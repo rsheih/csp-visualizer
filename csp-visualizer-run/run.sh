@@ -14,7 +14,7 @@ if [ ! -d "csp_env" ]; then
     python3 -m venv csp_env
 fi
 
-# ALWAYS use venv python explicitly (IMPORTANT FIX)
+# run using python
 VENV_PYTHON="./csp_env/bin/python"
 VENV_PIP="./csp_env/bin/pip"
 
@@ -22,10 +22,10 @@ VENV_PIP="./csp_env/bin/pip"
 echo "Upgrading pip..."
 $VENV_PYTHON -m pip install --upgrade pip
 
-# install dependencies INSIDE venv
+# install dependencies inside venv
 echo "Installing dependencies..."
 $VENV_PIP install pandas biopandas gemmi openpyxl
 
-# run script using venv python (CRITICAL FIX)
+# run script using venv pythonß
 echo "Running script..."
 $VENV_PYTHON b-factor.py
